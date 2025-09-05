@@ -44,6 +44,14 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Configure Git auth for private GitHub roles
+        env:
+          GH_READ_TOKEN: ${{ secrets.GH_READ_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TOKEN_TO_USE=${GH_READ_TOKEN:-$GITHUB_TOKEN}
+          git config --global url."https://x-access-token:${TOKEN_TO_USE}@github.com/".insteadOf "https://github.com/"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip

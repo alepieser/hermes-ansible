@@ -66,9 +66,13 @@ jobs:
           ansible-galaxy role install -r requirements.yml --roles-path ~/.ansible/roles
 
       - name: Check playbook syntax
+        env:
+          ANSIBLE_ROLES_PATH: ~/.ansible/roles:./roles
         run: ansible-playbook --syntax-check playbooks/setup.yml
 
       - name: Lint with ansible-lint
+        env:
+          ANSIBLE_ROLES_PATH: ~/.ansible/roles:./roles
         run: ansible-lint
 
       - name: Lint with yamllint

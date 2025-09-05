@@ -1,0 +1,58 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    ":enablePreCommit",
+    ":semanticCommitTypeAll(dep)"
+  ],
+  "timezone": "UTC",
+  "branchPrefix": "deps/",
+  "packageRules": [
+    {
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "labels": [
+        "dependencies",
+        "breaking"
+      ]
+    },
+    {
+      "automerge": false,
+      "labels": [
+        "dependencies",
+        "ansible"
+      ],
+      "matchPackageNames": [
+        "/^ansible/",
+        "/^molecule/",
+        "/^testinfra/",
+        "/^ansible-lint/"
+      ]
+    }
+  ],
+  "assignees": [
+    "alepieser"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": [
+      "security",
+      "vulnerability"
+    ]
+  }
+}

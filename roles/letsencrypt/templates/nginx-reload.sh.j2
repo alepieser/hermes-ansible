@@ -1,0 +1,8 @@
+#!/bin/bash
+# Nginx reload hook for Let's Encrypt renewal
+
+# Reload Nginx configuration
+systemctl reload nginx
+
+# Log the renewal
+echo "$(date): Nginx reloaded after certificate renewal" >> /var/log/letsencrypt-renewal.log

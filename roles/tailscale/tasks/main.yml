@@ -1,0 +1,275 @@
+---
+# Tailscale Installation and Configuration
+# ======================================
+
+# =============================================================================
+# INSTALLATION PHASE
+# =============================================================================
+
+- name: Create keyrings directory
+  ansible.builtin.file:
+    path: /usr/share/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Add Tailscale GPG key
+  ansible.builtin.get_url:
+    url: https://pkgs.tailscale.com/stable/raspbian/bookworm.noarmor.gpg
+    dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+    mode: '0644'
+
+- name: Add Tailscale repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/raspbian bookworm main"
+    state: present
+    update_cache: true
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install Tailscale via apt
+  ansible.builtin.apt:
+    name: tailscale
+    state: present
+
+# =============================================================================
+# KERNEL FORWARDING (required for subnet routing/exit node)
+# =============================================================================
+
+- name: Enable IPv4 forwarding (persistent)
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    state: present
+    reload: true
+    sysctl_file: /etc/sysctl.d/99-tailscale.conf
+
+- name: Enable IPv6 forwarding (persistent)
+  ansible.posix.sysctl:
+    name: net.ipv6.conf.all.forwarding
+    value: '1'
+    state: present
+    reload: true
+    sysctl_file: /etc/sysctl.d/99-tailscale.conf
+
+# =============================================================================
+# SERVICE PHASE
+# =============================================================================
+
+- name: Enable and start Tailscale daemon
+  ansible.builtin.systemd:
+    name: tailscaled
+    enabled: "{{ tailscale_service_enabled }}"
+    state: "{{ tailscale_service_state }}"
+    daemon_reload: true
+
+- name: Wait for Tailscale daemon to be ready
+  ansible.builtin.wait_for:
+    path: /run/tailscale/tailscaled.sock
+    delay: 5
+    timeout: 30
+
+# =============================================================================
+# CONNECTION PHASE (single up command)
+# =============================================================================
+
+- name: Configure Tailscale with auth key from vault
+  ansible.builtin.shell: |
+    tailscale up --reset --force-reauth --authkey="{{ vault_tailscale_auth_key }}" --hostname="{{ tailscale_hostname }}" --accept-routes={{ tailscale_accept_routes | lower }}{% if tailscale_advertise_routes | length > 0 %} --advertise-routes="{{ tailscale_advertise_routes | join(',') }}"{% endif %}{% if tailscale_exit_node %} --advertise-exit-node{% endif %}
+  when:
+    - vault_tailscale_auth_key != ""
+    - tailscale_enabled
+  register: tailscale_auth_result
+  changed_when: "'Success' in tailscale_auth_result.stdout"
+  ignore_errors: true
+
+# Tailnet-wide DNS configuration via Tailscale API (force clients to use AdGuard)
+- name: Ensure jq present for JSON parsing
+  ansible.builtin.apt:
+    name: jq
+    state: present
+
+- name: Get Tailscale API key from vault
+  ansible.builtin.set_fact:
+    tailscale_api_key: "{{ vault_tailscale_api_key | default('') }}"
+
+- name: Get device ID for current machine
+  ansible.builtin.shell: |
+    set -o pipefail
+    tailscale status --json | jq -r '.Self.ID'
+  args:
+    executable: /bin/bash
+  register: tailscale_device_id
+  changed_when: false
+
+- name: Disable device key expiry via API (Hermes)
+  ansible.builtin.uri:
+    url: "https://api.tailscale.com/api/v2/device/{{ tailscale_device_id.stdout }}/key"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ tailscale_api_key }}"
+      Content-Type: "application/json"
+    body_format: json
+    body: "{{ {'keyExpiryDisabled': tailscale_disable_key_expire} }}"
+    status_code: [200, 201]
+  when:
+    - tailscale_disable_key_expire
+    - tailscale_api_key != ""
+    - tailscale_device_id.stdout != ""
+  register: tailscale_disable_expire_result
+  ignore_errors: true
+
+- name: Fetch hermes Tailscale IP (for AdGuard DNS)
+  ansible.builtin.command:
+    argv: ["tailscale", "ip", "-4"]
+  register: tailscale_ip_out
+  changed_when: false
+
+- name: Build Split DNS routes map
+  ansible.builtin.set_fact:
+    tailscale_routes_map: "{{ (tailscale_routes_map | default({})) | combine({ item: [ tailscale_ip_out.stdout ] }) }}"
+  loop: "{{ tailscale_split_dns_domains }}"
+  when:
+    - tailscale_manage_tailnet_dns
+    - tailscale_api_key != ""
+
+- name: Set desired nameservers list
+  ansible.builtin.set_fact:
+    tailscale_desired_nameservers: ["{{ tailscale_ip_out.stdout }}", "{{ tailscale_dns_fallback }}"]
+
+- name: Update tailnet nameservers (AdGuard + fallback)
+  ansible.builtin.uri:
+    url: "https://api.tailscale.com/api/v2/tailnet/{{ tailscale_tailnet }}/dns/nameservers"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ tailscale_api_key }}"
+      Content-Type: "application/json"
+    body_format: json
+    body: "{{ {'nameservers': tailscale_desired_nameservers} }}"
+    status_code: [200, 201]
+  when:
+    - tailscale_manage_tailnet_dns
+    - tailscale_api_key != ""
+  register: tailscale_dns_api_result
+  ignore_errors: true
+
+- name: Get current Split DNS map
+  ansible.builtin.uri:
+    url: "https://api.tailscale.com/api/v2/tailnet/{{ tailscale_tailnet }}/dns/split-dns"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ tailscale_api_key }}"
+    status_code: 200
+  when:
+    - tailscale_manage_tailnet_dns
+    - tailscale_api_key != ""
+  register: tailscale_splitdns_current
+  ignore_errors: true
+
+- name: Prepare merged Split DNS map
+  ansible.builtin.set_fact:
+    tailscale_split_dns_merged: "{{ (tailscale_splitdns_current.json | default({})) | combine(tailscale_routes_map | default({})) }}"
+  when:
+    - tailscale_manage_tailnet_dns
+    - tailscale_api_key != ""
+
+- name: Apply Split DNS (PATCH)
+  ansible.builtin.uri:
+    url: "https://api.tailscale.com/api/v2/tailnet/{{ tailscale_tailnet }}/dns/split-dns"
+    method: PATCH
+    headers:
+      Authorization: "Bearer {{ tailscale_api_key }}"
+      Content-Type: "application/json"
+    body_format: json
+    body: "{{ tailscale_split_dns_merged }}"
+    status_code: [200, 201]
+  when:
+    - tailscale_manage_tailnet_dns
+    - tailscale_api_key != ""
+  register: tailscale_splitdns_patch
+  ignore_errors: true
+
+- name: Get current ACLs
+  ansible.builtin.uri:
+    url: "https://api.tailscale.com/api/v2/tailnet/{{ tailscale_tailnet }}/acl"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ tailscale_api_key }}"
+    status_code: 200
+  when:
+    - tailscale_api_key != ""
+  register: tailscale_acls_current
+  ignore_errors: true
+
+- name: Prepare ACLs with auto-approvers for routes
+  ansible.builtin.set_fact:
+    tailscale_acls_merged: "{{ tailscale_acls_current.json | default({}) }}"
+  when:
+    - tailscale_api_key != ""
+
+- name: Build auto-approvers routes map (CIDR -> approvers)
+  ansible.builtin.set_fact:
+    tailscale_auto_approvers_routes: "{{ (tailscale_auto_approvers_routes | default({})) | combine({item: ['autogroup:admin']}) }}"
+  loop: "{{ tailscale_autoapprove_routes }}"
+  when:
+    - tailscale_api_key != ""
+
+- name: Inject autoApprovers.routes for admin approvers
+  ansible.builtin.set_fact:
+    tailscale_acls_merged: "{{
+      tailscale_acls_merged |
+      combine({
+        'autoApprovers': (tailscale_acls_merged.autoApprovers | default({})) | combine({
+          'routes': (tailscale_acls_merged.autoApprovers.routes | default({})) | combine(tailscale_auto_approvers_routes | default({}))
+        })
+      })
+    }}"
+  when:
+    - tailscale_api_key != ""
+
+- name: Apply ACLs
+  ansible.builtin.uri:
+    url: "https://api.tailscale.com/api/v2/tailnet/{{ tailscale_tailnet }}/acl"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ tailscale_api_key }}"
+      Content-Type: "application/json"
+    body_format: json
+    body: "{{ tailscale_acls_merged }}"
+    status_code: [200, 201]
+  when:
+    - tailscale_api_key != ""
+  register: tailscale_acls_post
+  ignore_errors: true
+
+# =============================================================================
+# VERIFICATION PHASE
+# =============================================================================
+
+- name: Get Tailscale status
+  ansible.builtin.command:
+    argv: ["tailscale", "status"]
+  register: tailscale_status
+  changed_when: false
+
+- name: Display Tailscale status
+  ansible.builtin.debug:
+    msg: "{{ tailscale_status.stdout_lines }}"
+
+- name: Get Tailscale IP address
+  ansible.builtin.command:
+    argv: ["tailscale", "ip", "-4"]
+  register: tailscale_ip
+  changed_when: false
+
+- name: Display Tailscale IP address
+  ansible.builtin.debug:
+    msg: "Tailscale IP: {{ tailscale_ip.stdout }}"
+
+- name: Test Tailscale connectivity
+  ansible.builtin.ping:
+    data: "Tailscale connectivity test"
+  delegate_to: "{{ inventory_hostname }}"
+  when: tailscale_enabled

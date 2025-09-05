@@ -1,0 +1,43 @@
+---
+- name: Update Hermes Server
+  hosts: hermes
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Load essential variables for tag execution
+      ansible.builtin.include_vars: "{{ item }}"
+      with_first_found:
+        - "{{ playbook_dir }}/../group_vars/all.yml"
+        - /dev/null
+      tags: always
+
+    - name: Load vault variables for tag execution
+      ansible.builtin.include_vars: "{{ item }}"
+      with_first_found:
+        - "{{ playbook_dir }}/../group_vars/all.vault.yml"
+        - /dev/null
+      tags: always
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      tags: always
+
+  roles:
+    - role: alepieser.system_updates
+      tags: [system_updates, update]
+
+  post_tasks:
+    - name: Display update completion message
+      ansible.builtin.debug:
+        msg: |
+          Hermes server update completed successfully!
+
+          System updates applied:
+          - Package updates: {{ system_updates_upgrade_packages | default('enabled') }}
+          - Kernel check: {{ system_updates_check_kernel | default('enabled') }}
+          - EEPROM check: {{ system_updates_check_eeprom | default('enabled') }}
+          - Cache cleanup: {{ system_updates_clean_cache | default('enabled') }}
+      tags: always

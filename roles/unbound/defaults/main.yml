@@ -1,0 +1,108 @@
+---
+# Unbound DNS Server Configuration
+# ===============================
+
+# Service configuration
+unbound_service_enabled: true
+unbound_service_state: started
+
+# Network configuration
+unbound_listen_addresses:
+  - 127.0.0.1
+unbound_port: 5353
+
+# System resource calculations
+unbound_host_memory: '{{ ansible_memtotal_mb }}'
+unbound_host_threads: '{{ ansible_processor_cores * ansible_processor_count }}'
+
+# Performance optimizations (calculated automatically)
+# Optimized for RPi 4 with 5 essential services
+unbound_optimizations:
+  infra_cache_slabs: '{{ unbound_host_threads | int * 2 }}'
+  key_cache_slabs: '{{ unbound_host_threads | int * 2 }}'
+  # Balanced memory allocation for RPi 4 with 5 services
+  msg_cache_size: '{{ (unbound_host_memory | int * 0.0234) | round | int }}m'
+  msg_cache_slabs: '{{ unbound_host_threads | int * 2 }}'
+  num_threads: '{{ unbound_host_threads }}'
+  rrset_cache_slabs: '{{ unbound_host_threads | int * 2 }}'
+  # Balanced RRset cache for RPi 4
+  rrset_cache_size: '{{ (unbound_host_memory | int * 0.0469) | round | int }}m'
+
+# Cache configuration (optimized for RPi 4 with 5 services)
+unbound_cache_max_ttl: 86400
+unbound_cache_min_ttl: 0
+
+# RPi 4 specific optimizations
+# =============================
+
+# Balanced memory usage for 5-service environment
+unbound_rpi4_optimized: true
+
+# Optimized memory footprint for 5 services
+unbound_neg_cache_size: "3M"  # Balanced between 2M and 4M
+unbound_infra_cache_size: "2M"  # Balanced infrastructure cache
+
+# Network optimizations for RPi 4
+unbound_outgoing_range: 6144  # Balanced between 4096 and 8192
+unbound_incoming_num_tcp: 8   # Balanced between 5 and 10
+unbound_outgoing_num_tcp: 8   # Balanced between 5 and 10
+
+# Buffer sizes optimized for RPi 4
+unbound_so_rcvbuf: "3m"       # Balanced between 2m and 4m
+unbound_so_sndbuf: "3m"        # Balanced between 2m and 4m
+
+# DNSSEC configuration
+unbound_dnssec_enabled: true
+unbound_auto_trust_anchor_file: "/var/lib/unbound/root.key"
+
+# Logging configuration
+unbound_verbosity: 1
+unbound_use_syslog: "yes"
+unbound_log_queries: "no"
+unbound_log_replies: "no"
+unbound_log_tag: "unbound"
+unbound_log_time_ascii: "yes"
+
+# Local zones for internal domain resolution
+unbound_local_zones: []
+
+# Forward zones (empty by default, can be configured later)
+unbound_forward_zones: []
+
+# DNS over TLS (DoT) - Enabled by default for maximum privacy
+unbound_dot_enabled: true
+unbound_dot_providers:
+  - name: "Cloudflare"
+    servers:
+      - "1.1.1.1@853#cloudflare-dns.com"
+      - "1.0.0.1@853#cloudflare-dns.com"
+  - name: "Quad9"
+    servers:
+      - "9.9.9.9@853#dns.quad9.net"
+      - "149.112.112.112@853#dns.quad9.net"
+
+# Advanced privacy and security settings
+# ====================================
+
+# Enhanced privacy protections
+unbound_privacy_enhanced: "yes"
+unbound_qname_minimisation_strict: "yes"
+unbound_minimal_responses: "yes"
+unbound_serve_expired: "no"
+unbound_jostle_timeout: 200
+
+# Enhanced security protections
+unbound_security_enhanced: "yes"
+unbound_max_udp_size: 4096
+unbound_edns_buffer_size: 4096
+unbound_ratelimit_factor: 0
+unbound_ratelimit_slabs: 8
+unbound_val_permissive_mode: "no"
+unbound_val_log_level: 0
+
+# Cache poisoning protection
+unbound_unwanted_reply_threshold: 10000000
+
+# DNS rebinding protection
+unbound_private_domain: "invalid"
+unbound_prevent_rebinding: "yes"

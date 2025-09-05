@@ -1,0 +1,52 @@
+---
+# Beszel Agent Installation and Configuration
+# ===========================================
+
+- name: Assert Beszel agent public key is provided
+  ansible.builtin.assert:
+    that: beszel_agent_public_key != ""
+    fail_msg: "Beszel agent public key must be provided in group_vars/all.vault.yml"
+
+- name: Assert Beszel hub URL is provided
+  ansible.builtin.assert:
+    that: beszel_agent_hub_url != ""
+    fail_msg: "Beszel hub URL must be provided in group_vars/all.yml"
+
+- name: Install and configure Beszel agent
+  ansible.builtin.include_role:
+    name: community.beszel.agent
+  vars:
+    agent_hub_url: "{{ beszel_agent_hub_url }}"
+    agent_public_key: "{{ beszel_agent_public_key }}"
+
+- name: Ensure systemd drop-in directory exists for token
+  when: beszel_agent_token | length > 0
+  ansible.builtin.file:
+    path: /etc/systemd/system/beszel-agent.service.d
+    state: directory
+    mode: u=rwx,g=rx,o=rx
+
+- name: Add BESZEL_TOKEN environment drop-in if token provided
+  when: beszel_agent_token | length > 0
+  ansible.builtin.template:
+    src: beszel-agent-token.conf.j2
+    dest: /etc/systemd/system/beszel-agent.service.d/beszel-agent-token.conf
+    mode: u=rw,g=r,o=r
+  notify:
+    - Restart Beszel Agent
+
+
+- name: Verify Beszel agent is running
+  ansible.builtin.systemd:
+    name: beszel-agent
+    state: started
+  register: beszel_service_status
+
+- name: Display Beszel agent status
+  ansible.builtin.debug:
+    msg: |
+      Beszel agent installation completed successfully!
+
+      Service status: {{ beszel_service_status.status.ActiveState }}
+      Hub URL: {{ beszel_agent_hub_url }}
+      Token configured: {{ (beszel_agent_token | length > 0) | ternary('yes','no') }}

@@ -1,0 +1,13 @@
+# Systemd-resolved configuration for AdGuard Home
+# This ensures all DNS queries go through AdGuard Home
+[Resolve]
+# Use AdGuard Home as the primary DNS resolver
+DNS=127.0.0.1
+# Disable the stub listener to avoid conflicts
+DNSStubListener=no
+# Fallback DNS servers (optional, AdGuard Home will handle upstream)
+# FallbackDNS=1.1.1.1 1.0.0.1
+# Cache configuration
+Cache=yes
+# DNSSEC validation (handled by AdGuard Home upstream)
+DNSSEC=no

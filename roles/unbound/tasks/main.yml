@@ -1,0 +1,142 @@
+---
+# Unbound DNS Server Installation and Configuration
+# ================================================
+
+- name: Install Unbound package
+  ansible.builtin.apt:
+    name: unbound
+    state: present
+    update_cache: true
+  tags: [unbound, install]
+
+- name: Install dig for testing
+  ansible.builtin.apt:
+    name: dnsutils
+    state: present
+    update_cache: false
+
+- name: Remove default Unbound configuration files to avoid conflicts
+  ansible.builtin.file:
+    path: "/etc/unbound/unbound.conf.d/{{ item }}"
+    state: absent
+  loop:
+    - "root-auto-trust-anchor-file.conf"
+    - "root-hints.conf"
+    - "unbound.conf"
+    - "*.conf"
+  failed_when: false
+
+- name: Create Unbound directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+    owner: unbound
+    group: unbound
+  with_items:
+    - /etc/unbound/unbound.conf.d
+    - /var/lib/unbound
+  tags: [unbound, config]
+
+- name: Configure main Unbound configuration file
+  ansible.builtin.template:
+    src: unbound.conf.j2
+    dest: /etc/unbound/unbound.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart unbound
+  tags: [unbound, config]
+
+- name: Copy static Unbound configuration files
+  ansible.builtin.copy:
+    src: "files/{{ item }}"
+    dest: "/etc/unbound/unbound.conf.d/{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  with_items:
+    - custom-forward-zone.conf
+    - extra-options.conf
+    - logging.conf
+    - privacy.conf
+    - remote-control.conf
+    - security.conf
+  notify: restart unbound
+  tags: [unbound, config]
+
+- name: Copy dynamic configurations
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/unbound/unbound.conf.d/{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  with_items:
+    - cache.conf
+    - performance.conf
+    - port.conf
+  notify: restart unbound
+  tags: [unbound, config]
+
+- name: Download root.hints file
+  ansible.builtin.get_url:
+    url: https://www.internic.net/domain/named.root
+    dest: /tmp/root.hints
+    mode: "0644"
+  tags: [unbound, config]
+
+- name: Move root.hints to /var/lib/unbound
+  ansible.builtin.command: mv /tmp/root.hints /var/lib/unbound/root.hints
+  args:
+    creates: /var/lib/unbound/root.hints
+  tags: [unbound, config]
+
+- name: Download root.key file for DNSSEC
+  ansible.builtin.get_url:
+    url: https://data.iana.org/root-anchors/root-anchors.xml
+    dest: /tmp/root-anchors.xml
+    mode: "0644"
+  tags: [unbound, config]
+
+- name: Generate root.key from root-anchors.xml
+  ansible.builtin.command: unbound-anchor -a /var/lib/unbound/root.key -f /tmp/root-anchors.xml
+  args:
+    creates: /var/lib/unbound/root.key
+  tags: [unbound, config]
+
+- name: Set proper permissions for Unbound directories
+  ansible.builtin.file:
+    path: /var/lib/unbound
+    owner: unbound
+    group: unbound
+    mode: "0755"
+    recurse: true
+  tags: [unbound, config]
+
+- name: Enable and start Unbound service
+  ansible.builtin.systemd:
+    name: unbound
+    enabled: "{{ unbound_service_enabled }}"
+    state: "{{ unbound_service_state }}"
+    daemon_reload: true
+  tags: [unbound, service]
+
+- name: Wait for Unbound to be ready
+  ansible.builtin.wait_for:
+    port: "{{ unbound_port }}"
+    host: "127.0.0.1"
+    timeout: 30
+  tags: [unbound, service]
+
+- name: Test Unbound DNS resolution
+  ansible.builtin.command: "dig @127.0.0.1 google.com"
+  register: dns_test
+  changed_when: false
+  failed_when: dns_test.rc != 0
+  tags: [unbound, test]
+
+- name: Display DNS test result
+  ansible.builtin.debug:
+    msg: "Unbound DNS test completed successfully with exit code: {{ dns_test.rc }}"
+  tags: [unbound, test]

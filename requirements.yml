@@ -1,0 +1,18 @@
+---
+collections:
+  - name: community.beszel
+    version: ">=0.2.0"
+
+roles:
+  - name: alepieser.common
+    src: https://github.com/alepieser/ansible-rpi-common
+    version: main
+  - name: alepieser.system_updates
+    src: https://github.com/alepieser/ansible-rpi-system-updates
+    version: main
+  - name: alepieser.firewall
+    src: https://github.com/alepieser/ansible-rpi-firewall
+    version: main
+  - name: alepieser.security
+    src: https://github.com/alepieser/ansible-rpi-security
+    version: main

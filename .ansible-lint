@@ -1,0 +1,10 @@
+---
+# Ansible-lint configuration
+exclude_paths:
+  - roles/alepieser.*/  # Exclude external roles
+  - roles/unifi/        # Exclude unifi role for now
+
+# Ignore specific rules for specific files
+skip_list:
+  - var-naming  # Skip variable naming rules since we need to use portainer_app_ prefix
+  - fqcn        # Skip FQCN rules for now to focus on critical issues

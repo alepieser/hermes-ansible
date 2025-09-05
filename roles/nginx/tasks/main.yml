@@ -1,0 +1,77 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+
+- name: Install Nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+  become: true
+
+- name: Remove default Nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+    mode: '0644'
+  become: true
+
+- name: Create Nginx main configuration
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    backup: true
+    mode: '0644'
+  become: true
+  notify: Reload nginx
+
+- name: Check if SSL certificates exist
+  ansible.builtin.stat:
+    path: "{{ certbot_config_dir }}/live/{{ letsencrypt_domain }}/fullchain.pem"
+  register: ssl_cert_exists
+
+- name: Set SSL certificate status for templates
+  ansible.builtin.set_fact:
+    ssl_cert_available: "{{ ssl_cert_exists.stat.exists }}"
+
+- name: Create dynamic reverse proxy configurations
+  ansible.builtin.template:
+    src: "{{ proxy.template_file }}.conf.j2"
+    dest: "{{ nginx_sites_available_dir }}/{{ proxy.subdomain }}-proxy"
+    mode: '0644'
+  loop: "{{ proxies }}"
+  loop_control:
+    loop_var: proxy
+  when:
+    - proxy.enabled | default(true)
+    - ssl_cert_exists.stat.exists
+  notify: Reload nginx
+
+- name: Enable dynamic reverse proxy sites
+  ansible.builtin.file:
+    src: "{{ nginx_sites_available_dir }}/{{ proxy.subdomain }}-proxy"
+    dest: "{{ nginx_sites_enabled_dir }}/{{ proxy.subdomain }}-proxy"
+    state: link
+  loop: "{{ proxies }}"
+  loop_control:
+    loop_var: proxy
+  when:
+    - proxy.enabled | default(true)
+    - ssl_cert_exists.stat.exists
+  notify: Reload nginx
+
+- name: Start and enable Nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: started
+    enabled: true
+  become: true
+
+- name: Test Nginx configuration
+  ansible.builtin.command: nginx -t
+  register: nginx_test
+  changed_when: false
+  failed_when: nginx_test.rc != 0
+  become: true

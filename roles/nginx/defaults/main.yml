@@ -1,0 +1,59 @@
+---
+# Nginx configuration
+nginx_user: "www-data"
+nginx_worker_processes: "auto"
+nginx_worker_connections: 1024
+nginx_keepalive_timeout: 65
+nginx_gzip: true
+nginx_gzip_enabled: true
+nginx_gzip_types:
+  - text/plain
+  - text/css
+  - application/json
+  - application/javascript
+  - text/xml
+  - application/xml
+  - application/xml+rss
+  - text/javascript
+
+# Nginx directories
+nginx_sites_available_dir: /etc/nginx/sites-available
+nginx_sites_enabled_dir: /etc/nginx/sites-enabled
+
+# SSL configuration
+nginx_ssl_protocols: "TLSv1.2 TLSv1.3"
+nginx_ssl_ciphers: "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384"
+nginx_ssl_prefer_server_ciphers: "on"
+nginx_ssl_session_cache: "shared:SSL:10m"
+nginx_ssl_session_timeout: "10m"
+nginx_ssl_stapling: "on"
+nginx_ssl_stapling_verify: "on"
+
+# Security headers
+nginx_security_headers:
+  - "X-Frame-Options \"SAMEORIGIN\""
+  - "X-Content-Type-Options \"nosniff\""
+  - "X-XSS-Protection \"1; mode=block\""
+  - "Referrer-Policy \"strict-origin-when-cross-origin\""
+  - "Permissions-Policy \"geolocation=(), microphone=(), camera=()\""
+
+# Let's Encrypt configuration (from letsencrypt role)
+letsencrypt_domain: "{{ vault_letsencrypt_domain | default('example.com') }}"
+certbot_config_dir: /etc/letsencrypt
+
+# Dynamic reverse proxy configuration
+proxies: []
+
+# Example:
+# proxies:
+#   - subdomain: "adguard"
+#     host: "127.0.0.1"
+#     port: "8080"
+#     template_file: "adguard"
+#     enabled: true
+
+#   - subdomain: "ha"
+#     host: "192.168.1.2"
+#     port: "8123"
+#     template_file: "homeassistant"
+#     enabled: true

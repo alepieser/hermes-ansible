@@ -1,0 +1,80 @@
+user {{ nginx_user }};
+worker_processes {{ nginx_worker_processes }};
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+    worker_connections {{ nginx_worker_connections }};
+    use epoll;
+    multi_accept on;
+}
+
+http {
+    ##
+    # Basic Settings
+    ##
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout {{ nginx_keepalive_timeout }};
+    types_hash_max_size 2048;
+    server_tokens off;
+
+    # server_names_hash_bucket_size 64;
+    # server_name_in_redirect off;
+
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    ##
+    # SSL Settings
+    ##
+    ssl_protocols {{ nginx_ssl_protocols }};
+    ssl_ciphers {{ nginx_ssl_ciphers }};
+    ssl_prefer_server_ciphers {{ nginx_ssl_prefer_server_ciphers }};
+    ssl_session_cache {{ nginx_ssl_session_cache }};
+    ssl_session_timeout {{ nginx_ssl_session_timeout }};
+    ssl_stapling {{ nginx_ssl_stapling }};
+    ssl_stapling_verify {{ nginx_ssl_stapling_verify }};
+
+    ##
+    # Logging Settings (optimized for Raspberry Pi SD card)
+    ##
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+
+    # Disable access logs to reduce SD card wear
+    access_log off;
+    
+    # Disable error logs to prevent SD card wear (use /dev/null)
+    error_log /dev/null;
+
+    ##
+    # Gzip Settings
+    ##
+    {% if nginx_gzip_enabled %}
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types
+        {% for gzip_type in nginx_gzip_types %}
+        {{ gzip_type }}
+        {% endfor %};
+    {% endif %}
+
+    ##
+    # Security Headers
+    ##
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    ##
+    # Virtual Host Configs
+    ##
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*;
+}

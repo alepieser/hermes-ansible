@@ -1,0 +1,96 @@
+# Global configuration for Hermes
+# ======================================
+
+# System configuration
+hermes_timezone: UTC
+hermes_locale: en_US.UTF-8
+
+# Common role configuration
+common_hostname: "{{ inventory_hostname }}"
+common_timezone: "{{ hermes_timezone }}"
+common_install_packages: []
+common_disable_unused_services:
+  - bluetooth
+  - ModemManager
+  - cups
+  - cups-browsed
+  - avahi-daemon
+  - triggerhappy
+  - dphys-swapfile
+  - hciuart
+  - wpa_supplicant
+
+# Network configuration
+hermes_domain: hermes.local
+
+# Unbound DNS Server Configuration
+# ===============================
+
+# Local zones for internal domain resolution
+unbound_local_zones:
+  - name: "{{ hermes_domain }}"
+    type: static
+    records:
+      - "{{ inventory_hostname }}.{{ hermes_domain }}. IN A {{ ansible_default_ipv4.address }}"
+
+# AdGuard Home configuration
+adguard_local_dns_enabled: true
+adguard_local_dns_records:
+  - domain: "homeassistant.sagradafamilia.casa"
+    ip: "192.168.1.100"
+  - domain: "jellyfin.sagradafamilia.casa"
+    ip: "192.168.1.101"
+  - domain: "portainer.sagradafamilia.casa"
+    ip: "192.168.1.102"
+  - domain: "truenas.sagradafamilia.casa"
+    ip: "192.168.1.103"
+  - domain: "unifi.sagradafamilia.casa"
+    ip: "192.168.1.104"
+
+# Firewall configuration
+firewall_allowed_ports:
+  - port: 22
+    proto: tcp
+  - port: 53
+    proto: udp
+  - port: 53
+    proto: tcp
+  - port: 80
+    proto: tcp
+  - port: 443
+    proto: tcp
+  - port: 45876
+    proto: tcp
+
+# Security role configuration
+security_ssh_password_auth: true
+
+# System updates role configuration
+system_updates_check_kernel: true
+system_updates_check_eeprom: true
+system_updates_upgrade_packages: true
+system_updates_clean_cache: true
+
+# Nginx reverse proxy configuration
+proxies:
+  - subdomain: "adguard"
+    host: "127.0.0.1"
+    port: "8080"
+    template_file: "adguard"
+    enabled: true
+
+# Tailscale configuration
+tailscale_enabled: true
+tailscale_advertise_routes:
+  - "192.168.1.0/24"
+tailscale_accept_routes: true
+
+# Beszel Agent Configuration
+# ==========================
+
+# Beszel hub URL (required for agent connection)
+beszel_agent_hub_url: "http://192.168.1.72:8090"
+
+# Beszel agent configuration (only overriding non-defaults)
+beszel_agent_public_key: "{{ vault_beszel_agent_public_key | default('') }}"
+beszel_agent_token: "{{ vault_beszel_agent_token | default('') }}"

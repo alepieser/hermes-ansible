@@ -1,0 +1,11 @@
+server:
+
+    # Listen to for queries from clients and answer from this network interface
+    # and port.
+{% if unbound_listen_addresses is defined %}
+{%   for item in unbound_listen_addresses %}
+    interface: {{ item }}
+{%   endfor %}
+{% endif %}
+
+    port: {{ unbound_port }}

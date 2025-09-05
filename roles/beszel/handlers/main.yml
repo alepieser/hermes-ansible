@@ -1,0 +1,21 @@
+---
+# Beszel Agent Handlers
+# =====================
+
+- name: Restart Beszel Agent
+  ansible.builtin.systemd:
+    name: beszel-agent
+    state: restarted
+    daemon_reload: true
+  listen: "restart beszel agent"
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen: "Reload systemd configuration"
+
+- name: Reload Beszel Agent
+  ansible.builtin.systemd:
+    name: beszel-agent
+    state: reloaded
+  listen: "reload beszel agent"

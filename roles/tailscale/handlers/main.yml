@@ -1,0 +1,25 @@
+---
+# Tailscale handlers
+# ==================
+
+- name: Restart tailscaled
+  ansible.builtin.systemd:
+    name: tailscaled
+    state: restarted
+    daemon_reload: true
+
+- name: Reload tailscaled
+  ansible.builtin.systemd:
+    name: tailscaled
+    state: reloaded
+    daemon_reload: true
+
+- name: Stop tailscaled
+  ansible.builtin.systemd:
+    name: tailscaled
+    state: stopped
+
+- name: Start tailscaled
+  ansible.builtin.systemd:
+    name: tailscaled
+    state: started

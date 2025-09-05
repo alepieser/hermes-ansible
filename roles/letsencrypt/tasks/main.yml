@@ -1,0 +1,106 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  become: true
+
+- name: Install Certbot and dependencies
+  ansible.builtin.apt:
+    name:
+      - cron
+      - python3-pip
+      - python3-venv
+    state: present
+  become: true
+
+- name: Create virtual environment for certbot
+  ansible.builtin.command: python3 -m venv /opt/certbot-venv
+  changed_when: false
+  become: true
+
+- name: Install certbot in virtual environment
+  ansible.builtin.pip:
+    name:
+      - certbot
+      - certbot-dns-cloudflare
+    virtualenv: /opt/certbot-venv
+    state: present
+  become: true
+
+- name: Remove existing certbot binary
+  ansible.builtin.file:
+    path: /usr/bin/certbot
+    state: absent
+  become: true
+
+- name: Create symlink for certbot command
+  ansible.builtin.file:
+    src: /opt/certbot-venv/bin/certbot
+    dest: /usr/bin/certbot
+    state: link
+  become: true
+
+- name: Create certbot directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ certbot_install_dir }}"
+    - "{{ certbot_webroot_dir }}"
+    - "{{ certbot_config_dir }}/renewal-hooks/deploy"
+    - "{{ certbot_config_dir }}/renewal-hooks/pre"
+    - "{{ certbot_config_dir }}/renewal-hooks/post"
+
+- name: Create Cloudflare credentials file
+  ansible.builtin.template:
+    src: cloudflare.ini.j2
+    dest: "{{ certbot_config_dir }}/dnscloudflare.ini"
+    mode: '0600'
+    owner: root
+    group: root
+
+- name: Create Let's Encrypt CLI configuration
+  ansible.builtin.template:
+    src: letsencrypt_cli.ini.j2
+    dest: "{{ certbot_config_dir }}/cli.ini"
+    mode: '0644'
+    owner: root
+    group: root
+
+- name: Create Nginx renewal hook script
+  ansible.builtin.template:
+    src: nginx-reload.sh.j2
+    dest: "{{ certbot_renewal_hook }}"
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Build domain list for Let's Encrypt certificate
+  ansible.builtin.set_fact:
+    certbot_domains: "{{ [letsencrypt_domain, letsencrypt_wildcard] }}"
+
+- name: Request Let's Encrypt certificate
+  ansible.builtin.command: >
+    certbot certonly
+    --noninteractive
+    --dns-cloudflare
+    --dns-cloudflare-credentials {{ certbot_config_dir }}/dnscloudflare.ini
+    --agree-tos
+    --email {{ letsencrypt_email }}
+    {% for domain in certbot_domains %}
+    -d {{ domain }}
+    {% endfor %}
+  register: certbot_result
+  changed_when: false
+  become: true
+
+- name: Add cron job for certbot renewal
+  ansible.builtin.cron:
+    name: "Certbot renewal"
+    minute: "{{ certbot_renewal_cron_minute }}"
+    hour: "{{ certbot_renewal_cron_hour }}"
+    job: "/usr/bin/certbot renew --quiet --deploy-hook {{ certbot_renewal_hook }}"
+    user: root
+  when: certbot_auto_renew
+  become: true

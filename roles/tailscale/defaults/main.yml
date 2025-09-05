@@ -1,0 +1,28 @@
+---
+# Tailscale configuration
+tailscale_enabled: true
+tailscale_auth_key: "{{ vault_tailscale_auth_key | default('') }}"
+tailscale_hostname: "{{ inventory_hostname }}"
+tailscale_advertise_routes: []
+tailscale_exit_node: false
+tailscale_accept_routes: false
+
+# Tailscale service configuration
+tailscale_service_enabled: true
+tailscale_service_state: "started"
+
+## Tailnet-wide DNS management via Tailscale API
+tailscale_manage_tailnet_dns: true
+tailscale_dns_fallback: "100.100.100.100"
+tailscale_split_dns_domains:
+  - "sagradafamilia.casa"
+tailscale_autoapprove_routes:
+  - "192.168.1.0/24"
+
+## Firewall and logging are managed elsewhere
+
+# Tailscale API configuration
+tailscale_tailnet: "alexandre.servoz@gmail.com"  # Your Tailscale tailnet name
+
+# Tailscale auth key configuration
+tailscale_disable_key_expire: true  # Disable key expiration at device level

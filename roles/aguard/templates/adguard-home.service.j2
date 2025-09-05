@@ -1,0 +1,32 @@
+[Unit]
+Description=AdGuard Home
+Documentation=https://github.com/AdguardTeam/AdGuardHome
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ adguard_user }}
+Group={{ adguard_group }}
+WorkingDirectory={{ adguard_work_dir }}
+ExecStart={{ adguard_install_dir }}/AdGuardHome -c {{ adguard_config_dir }}/AdGuardHome.yaml -w {{ adguard_work_dir }} -h {{ adguard_bind_host }} -p {{ adguard_bind_port }}
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGINT
+TimeoutStopSec=5
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths={{ adguard_work_dir }} {{ adguard_config_dir }} {{ adguard_data_dir }} {{ adguard_log_dir }}
+NoNewPrivileges=true
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+# Memory optimizations for 4GB RAM
+MemoryMax=512M
+MemoryHigh=256M
+
+[Install]
+WantedBy=multi-user.target

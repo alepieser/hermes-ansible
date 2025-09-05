@@ -1,0 +1,25 @@
+__pycache__
+*.cache
+*.retry
+.vault_pass.txt
+
+# External Ansible roles (managed by ansible-galaxy)
+roles/alepieser.*/
+
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+.ansible/
+node_modules/
+venv/

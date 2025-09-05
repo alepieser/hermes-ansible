@@ -1,0 +1,11 @@
+---
+# Beszel hub URL (required for agent connection)
+beszel_agent_hub_url: ""
+
+# Beszel agent public key (required for authentication)
+# This should be set in group_vars/all.vault.yml
+beszel_agent_public_key: ""
+
+# Beszel agent token (optional, if your hub requires it)
+# Store in vault and reference via group_vars/all.yml
+beszel_agent_token: ""

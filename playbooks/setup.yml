@@ -1,0 +1,75 @@
+---
+- name: Setup Hermes Server
+  hosts: hermes
+  become: true
+  gather_facts: true
+
+  vars: {}
+
+  pre_tasks:
+    - name: Load essential variables for tag execution
+      ansible.builtin.include_vars: "{{ item }}"
+      with_first_found:
+        - "{{ playbook_dir }}/../group_vars/all.yml"
+        - /dev/null
+      tags: always
+
+    - name: Load vault variables for tag execution
+      ansible.builtin.include_vars: "{{ item }}"
+      with_first_found:
+        - "{{ playbook_dir }}/../group_vars/all.vault.yml"
+        - /dev/null
+      tags: always
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      tags: always
+
+  roles:
+    - role: alepieser.common
+      tags: [common, base]
+    - role: alepieser.firewall
+      tags: [firewall, base]
+    - role: alepieser.security
+      tags: [security, base]
+    - role: alepieser.system_updates
+      tags: [system_updates, base]
+    - role: unbound
+      tags: [unbound, dns]
+    - role: aguard
+      tags: [aguard, dns, update]
+    - role: letsencrypt
+      tags: [letsencrypt, ssl, certbot]
+    - role: nginx
+      tags: [nginx, ssl, reverse-proxy]
+    - role: tailscale
+      tags: [tailscale, vpn, remote-access]
+    - role: beszel
+      tags: [beszel, monitoring]
+
+  post_tasks:
+    - name: Configure locale
+      community.general.locale_gen:
+        name: "{{ hermes_locale }}"
+        state: present
+      tags: [common, base]
+
+    - name: Display setup completion message
+      ansible.builtin.debug:
+        msg: |
+          Hermes server setup completed successfully!
+
+                           Services installed/updated:
+                 - Unbound DNS (port 5353) with DoT + DNSSEC
+                 - AdGuard Home (port 53/8080) with filtering
+                 - Nginx reverse proxy with Let's Encrypt SSL
+                 - Beszel agent for system monitoring
+
+                 Access AdGuard Home at: https://adguard.sagradafamilia.casa
+
+          To update AdGuard Home:
+          1. Change adguard_version in roles/aguard/defaults/main.yml
+          2. Run: ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --tags aguard --ask-vault-pass
+      tags: always

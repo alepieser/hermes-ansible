@@ -53,6 +53,10 @@ jobs:
         run: |
           ansible-galaxy collection install -r requirements.yml
 
+      - name: Install Ansible roles
+        run: |
+          ansible-galaxy role install -r requirements.yml --roles-path ~/.ansible/roles
+
       - name: Check playbook syntax
         run: ansible-playbook --syntax-check playbooks/setup.yml
 

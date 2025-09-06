@@ -62,6 +62,9 @@ firewall_allowed_ports:
   - port: 45876
     proto: tcp
 
+# Synchronization settings
+firewall_sync_enabled: true  # Enable complete UFW rules synchronization
+
 # Security role configuration
 security_ssh_password_auth: true
 

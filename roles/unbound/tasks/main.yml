@@ -76,6 +76,7 @@
     - cache.conf
     - performance.conf
     - port.conf
+    - local-zones.conf
   notify: restart unbound
   tags: [unbound, config]
 

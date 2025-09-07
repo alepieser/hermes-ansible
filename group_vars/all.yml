@@ -31,21 +31,17 @@ unbound_local_zones:
   - name: "{{ hermes_domain }}"
     type: static
     records:
-      - "{{ inventory_hostname }}.{{ hermes_domain }}. IN A {{ ansible_default_ipv4.address }}"
-
+      - "{{ hermes_domain }}. IN A {{ ansible_default_ipv4.address }}"
+  - name: "dedale.local"
+    type: static
+    records:
+      - "dedale.local. IN A 192.168.1.5"
+    
 # AdGuard Home configuration
 adguard_local_dns_enabled: true
 adguard_local_dns_records:
-  - domain: "homeassistant.sagradafamilia.casa"
-    ip: "192.168.1.100"
-  - domain: "jellyfin.sagradafamilia.casa"
-    ip: "192.168.1.101"
-  - domain: "portainer.sagradafamilia.casa"
-    ip: "192.168.1.102"
-  - domain: "truenas.sagradafamilia.casa"
-    ip: "192.168.1.103"
-  - domain: "unifi.sagradafamilia.casa"
-    ip: "192.168.1.104"
+  - domain: "*.sagradafamilia.casa"
+    ip: "192.168.1.7"
 
 # Firewall configuration
 firewall_allowed_ports:
@@ -58,6 +54,8 @@ firewall_allowed_ports:
   - port: 80
     proto: tcp
   - port: 443
+    proto: tcp
+  - port: 8080
     proto: tcp
   - port: 45876
     proto: tcp
@@ -76,10 +74,99 @@ system_updates_clean_cache: true
 
 # Nginx reverse proxy configuration
 proxies:
+  - subdomain: home
+    host: 192.168.1.5
+    port: "8081"
+    template_file: "generic-proxy"
+    enabled: true
+
   - subdomain: "adguard"
     host: "127.0.0.1"
     port: "8080"
     template_file: "adguard"
+    enabled: true
+
+  - subdomain: "ha"
+    host: 192.168.1.2
+    port: "8123"
+    template_file: homeassistant
+    enabled: true
+
+  - subdomain: "unifi"
+    host: "192.168.1.5" 
+    port: "8443"
+    template_file: "unifi"
+    enabled: true
+  - subdomain: "portainer"
+    host: "192.168.1.5"
+    port: "9443"
+    template_file: "portainer"
+    enabled: true
+  - subdomain: "speedtest"
+    host: "192.168.1.5"
+    port: "8082"
+    template_file: "generic-proxy"  
+    enabled: true
+  - subdomain: "dashboard"
+    host: "192.168.1.5"
+    port: "8083"
+    template_file: "generic-proxy"
+    enabled: true
+  - subdomain: "beszel"
+    host: "192.168.1.5"
+    port: "8090"
+    template_file: "beszel-proxy"
+    enabled: true
+
+  - subdomain: "nas"
+    host: "192.168.1.6"
+    port: "80"
+    template_file: "truenas"
+    enabled: true
+  - subdomain: "jellyfin"
+    host: "192.168.1.6"
+    port: "8096"
+    template_file: "jellyfin"
+    enabled: true
+  - subdomain: "jellyseerr"
+    host: "192.168.1.6"
+    port: "5055"
+    template_file: "generic-proxy"
+    enabled: true
+  - subdomain: "sonarr"
+    host: "192.168.1.6"
+    port: "8989"
+    template_file: "generic-proxy"
+    enabled: true
+  - subdomain: "radarr"
+    host: "192.168.1.6" 
+    port: "7878"
+    template_file: "generic-proxy"
+    enabled: true
+  - subdomain: "bazarr" 
+    host: "192.168.1.6" 
+    port: "6767"
+    template_file: "generic-proxy"
+    enabled: true
+  - subdomain: "readarr"
+    host: "192.168.1.6"
+    port: "8787"
+    template_file: "generic-proxy"
+    enabled: true
+  - subdomain: "jackett"
+    host: "192.168.1.6"
+    port: "9117"
+    template_file: "generic-proxy"
+    enabled: true
+  - subdomain: "deluge"
+    host: "192.168.1.6"
+    port: "8112"
+    template_file: "generic-proxy"
+    enabled: true
+  - subdomain: "nzb"
+    host: "192.168.1.6"
+    port: "6789"
+    template_file: "generic-proxy"
     enabled: true
 
 # Tailscale configuration
@@ -92,7 +179,7 @@ tailscale_accept_routes: true
 # ==========================
 
 # Beszel hub URL (required for agent connection)
-beszel_agent_hub_url: "http://192.168.1.72:8090"
+beszel_agent_hub_url: "https://beszel.sagradafamilia.casa"
 
 # Beszel agent configuration (only overriding non-defaults)
 beszel_agent_public_key: "{{ vault_beszel_agent_public_key | default('') }}"

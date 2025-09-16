@@ -49,4 +49,4 @@
 
       Service status: {{ beszel_service_status.status.ActiveState }}
       Hub URL: {{ beszel_agent_hub_url }}
-      Token configured: {{ (beszel_agent_token | length > 0) | ternary('yes','no') }}
+      Token configured: {{ (beszel_agent_token | length > 0) | ternary('yes', 'no') }}

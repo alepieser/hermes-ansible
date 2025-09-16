@@ -1,3 +1,4 @@
+---
 # Global configuration for Hermes
 # ======================================
 
@@ -36,8 +37,8 @@ unbound_local_zones:
     type: static
     records:
       - "dedale.local. IN A 192.168.1.5"
-    
 # AdGuard Home configuration
+adguard_version: "v0.107.66"
 adguard_local_dns_enabled: true
 adguard_local_dns_records:
   - domain: "*.sagradafamilia.casa"
@@ -93,7 +94,7 @@ proxies:
     enabled: true
 
   - subdomain: "unifi"
-    host: "192.168.1.5" 
+    host: "192.168.1.5"
     port: "8443"
     template_file: "unifi"
     enabled: true
@@ -105,7 +106,7 @@ proxies:
   - subdomain: "speedtest"
     host: "192.168.1.5"
     port: "8082"
-    template_file: "generic-proxy"  
+    template_file: "generic-proxy"
     enabled: true
   - subdomain: "dashboard"
     host: "192.168.1.5"
@@ -139,12 +140,12 @@ proxies:
     template_file: "generic-proxy"
     enabled: true
   - subdomain: "radarr"
-    host: "192.168.1.6" 
+    host: "192.168.1.6"
     port: "7878"
     template_file: "generic-proxy"
     enabled: true
-  - subdomain: "bazarr" 
-    host: "192.168.1.6" 
+  - subdomain: "bazarr"
+    host: "192.168.1.6"
     port: "6767"
     template_file: "generic-proxy"
     enabled: true

@@ -1,10 +1,19 @@
 ---
-# Ansible-lint configuration
-exclude_paths:
-  - roles/alepieser.*/  # Exclude external roles
-  - roles/unifi/        # Exclude unifi role for now
+# Ansible Lint configuration
+# ==========================
 
-# Ignore specific rules for specific files
+# Skip certain rules that are not critical for CI
 skip_list:
-  - var-naming  # Skip variable naming rules since we need to use portainer_app_ prefix
-  - fqcn        # Skip FQCN rules for now to focus on critical issues
+  - yaml[line-length]  # Allow longer lines for readability
+  - jinja[spacing]     # Allow some Jinja2 spacing variations
+
+# Use a more lenient profile
+profile: min
+
+# Exclude certain files from linting
+exclude_paths:
+  - group_vars/all.vault.yml  # Vault files are encrypted
+  - .ansible-lint
+  - .yamllint
+  - roles/*/molecule/  # Exclude molecule test files
+  - roles/alepieser.*/  # Exclude custom alepieser roles

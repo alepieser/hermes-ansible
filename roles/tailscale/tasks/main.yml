@@ -77,7 +77,12 @@
 
 - name: Configure Tailscale with auth key from vault
   ansible.builtin.shell: |
-    tailscale up --reset --force-reauth --authkey="{{ vault_tailscale_auth_key }}" --hostname="{{ tailscale_hostname }}" --accept-routes={{ tailscale_accept_routes | lower }}{% if tailscale_advertise_routes | length > 0 %} --advertise-routes="{{ tailscale_advertise_routes | join(',') }}"{% endif %}{% if tailscale_exit_node %} --advertise-exit-node{% endif %}
+    tailscale up --reset --force-reauth \
+      --authkey="{{ vault_tailscale_auth_key }}" \
+      --hostname="{{ tailscale_hostname }}" \
+      --accept-routes={{ tailscale_accept_routes | lower }}{% if tailscale_advertise_routes | length > 0 %} \
+      --advertise-routes="{{ tailscale_advertise_routes | join(',') }}"{% endif %}{% if tailscale_exit_node %} \
+      --advertise-exit-node{% endif %}
   when:
     - vault_tailscale_auth_key != ""
     - tailscale_enabled
@@ -129,7 +134,7 @@
 
 - name: Build Split DNS routes map
   ansible.builtin.set_fact:
-    tailscale_routes_map: "{{ (tailscale_routes_map | default({})) | combine({ item: [ tailscale_ip_out.stdout ] }) }}"
+    tailscale_routes_map: "{{ (tailscale_routes_map | default({})) | combine({item: [tailscale_ip_out.stdout]}) }}"
   loop: "{{ tailscale_split_dns_domains }}"
   when:
     - tailscale_manage_tailnet_dns

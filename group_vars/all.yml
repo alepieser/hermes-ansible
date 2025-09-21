@@ -178,7 +178,7 @@ proxies:
   - subdomain: "uptime"
     host: "192.168.1.4"
     port: "3001"
-    template_file: "generic-proxy"
+    template_file: "uptime"
     enabled: true
 
   # Thot

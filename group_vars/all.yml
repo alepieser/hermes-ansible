@@ -187,6 +187,11 @@ proxies:
     port: "8080"
     template_file: "zigbee2mqtt"
     enabled: true
+  - subdomain: "ntfy"
+    host: "192.168.1.3"
+    port: "8081"
+    template_file: "ntfy"
+    enabled: true
 
 # Tailscale configuration
 tailscale_enabled: true

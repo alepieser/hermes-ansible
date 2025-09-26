@@ -87,13 +87,13 @@
       # AdGuard Home data (statistics, logs, cache)
       /opt/adguardhome/data
       /opt/adguardhome/work
-      
+
       # Unbound DNS data (cache, statistics)
       /var/lib/unbound
-      
+
       # Tailscale VPN state and keys
       /var/lib/tailscale
-      
+
       # Beszel monitoring agent token (sensitive data)
       /etc/systemd/system/beszel-agent.service.d/beszel-agent-token.conf
 

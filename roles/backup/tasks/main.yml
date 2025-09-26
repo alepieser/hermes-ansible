@@ -1,0 +1,252 @@
+---
+# Install restic, mount NFS, deploy include/exclude and systemd units (renamed role)
+# Comments are in English by project policy
+- name: Ensure required packages are installed (restic, nfs-common)
+  ansible.builtin.apt:
+    name:
+      - restic
+      - nfs-common
+      - curl
+    state: present
+    update_cache: true
+- name: Ensure backup mount point exists
+  ansible.builtin.file:
+    path: "{{ backup_mount_point }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Ensure NFS entry present in /etc/fstab
+  ansible.builtin.mount:
+    path: "{{ backup_mount_point }}"
+    src: "{{ backup_nfs_server }}:{{ backup_nfs_export }}"
+    fstype: "{{ backup_filesystem_type }}"
+    opts: "{{ backup_nfs_options }}"
+    state: present
+
+- name: Mount NFS backup directory
+  ansible.builtin.mount:
+    path: "{{ backup_mount_point }}"
+    src: "{{ backup_nfs_server }}:{{ backup_nfs_export }}"
+    fstype: "{{ backup_filesystem_type }}"
+    opts: "{{ backup_nfs_options }}"
+    state: mounted
+
+- name: Verify NFS mount is active and points to expected export
+  when: backup_verify_mount | bool
+  ansible.builtin.shell: >-
+    set -euo pipefail;
+    mount | grep -E "^{{ backup_nfs_server }}:{{ backup_nfs_export }} on {{ backup_mount_point }} .* nfs" >/dev/null
+  args:
+    executable: /bin/bash
+  register: backup_mount_check
+  changed_when: false
+  failed_when: backup_mount_check.rc != 0
+
+- name: Verify repository directory is writable
+  when: backup_verify_mount | bool
+  ansible.builtin.file:
+    path: "{{ backup_mount_point }}/.ansible-write-test"
+    state: touch
+    owner: root
+    group: root
+    mode: "0644"
+  register: backup_write_check
+
+- name: Cleanup write test file
+  when: backup_verify_mount | bool and (backup_write_check is defined)
+  ansible.builtin.file:
+    path: "{{ backup_mount_point }}/.ansible-write-test"
+    state: absent
+
+- name: Ensure restic password directory exists
+  ansible.builtin.file:
+    path: "{{ backup_password_file | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Deploy restic password file (from vault variable backup_restic_password)
+  ansible.builtin.copy:
+    dest: "{{ backup_password_file }}"
+    content: "{{ backup_restic_password | default('CHANGE_ME_PASSWORD') }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Deploy include file
+  ansible.builtin.copy:
+    dest: "/etc/restic/include.txt"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # AdGuard Home data (statistics, logs, cache)
+      /opt/adguardhome/data
+      /opt/adguardhome/work
+      
+      # Unbound DNS data (cache, statistics)
+      /var/lib/unbound
+      
+      # Tailscale VPN state and keys
+      /var/lib/tailscale
+      
+      # Beszel monitoring agent token (sensitive data)
+      /etc/systemd/system/beszel-agent.service.d/beszel-agent-token.conf
+
+- name: Deploy exclude file
+  ansible.builtin.copy:
+    dest: "/etc/restic/exclude.txt"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Logs
+      /var/log/**
+      # ntfy cache DB can be large; exclude by default if not opted-in
+      /var/cache/ntfy/cache.db
+
+- name: Deploy systemd service for restic backup
+  ansible.builtin.template:
+    src: "restic-backup.service.j2"
+    dest: "/etc/systemd/system/restic-backup.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Deploy systemd timer for restic backup (daily)
+  ansible.builtin.template:
+    src: "restic-backup.timer.j2"
+    dest: "/etc/systemd/system/restic-backup.timer"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Restart restic-backup.timer to apply schedule
+  ansible.builtin.systemd:
+    name: restic-backup.timer
+    state: restarted
+    enabled: true
+    daemon_reload: true
+
+- name: Deploy systemd service for restic prune/forget
+  ansible.builtin.template:
+    src: "restic-prune.service.j2"
+    dest: "/etc/systemd/system/restic-prune.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Deploy systemd timer for restic prune (daily)
+  when: backup_enable_daily_prune | bool
+  ansible.builtin.template:
+    src: "restic-prune.timer.j2"
+    dest: "/etc/systemd/system/restic-prune.timer"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Restart restic-prune.timer to apply schedule
+  when: backup_enable_daily_prune | bool
+  ansible.builtin.systemd:
+    name: restic-prune.timer
+    state: restarted
+    enabled: true
+    daemon_reload: true
+
+- name: Deploy systemd service for restic check (weekly)
+  when: backup_enable_weekly_check | bool
+  ansible.builtin.template:
+    src: "restic-check.service.j2"
+    dest: "/etc/systemd/system/restic-check.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Deploy systemd timer for restic check (weekly)
+  when: backup_enable_weekly_check | bool
+  ansible.builtin.template:
+    src: "restic-check.timer.j2"
+    dest: "/etc/systemd/system/restic-check.timer"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Deploy systemd service for restic restore test (monthly)
+  when: backup_enable_monthly_restore_test | bool
+  ansible.builtin.template:
+    src: "restic-restore-test.service.j2"
+    dest: "/etc/systemd/system/restic-restore-test.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Deploy systemd timer for restic restore test (monthly)
+  when: backup_enable_monthly_restore_test | bool
+  ansible.builtin.template:
+    src: "restic-restore-test.timer.j2"
+    dest: "/etc/systemd/system/restic-restore-test.timer"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Deploy backup notification wrapper (ntfy)
+  when: backup_notify_enabled | bool
+  ansible.builtin.template:
+    src: "backup-notify.sh.j2"
+    dest: "/usr/local/bin/backup-notify.sh"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy backup-run wrapper
+  when: backup_notify_enabled | bool
+  ansible.builtin.template:
+    src: "backup-run.sh.j2"
+    dest: "/usr/local/bin/backup-run.sh"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Enable and start timers
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  loop:
+    - restic-backup.timer
+    - restic-prune.timer
+    - "{{ backup_enable_weekly_check | bool | ternary('restic-check.timer', omit) }}"
+    - "{{ backup_enable_monthly_restore_test | bool | ternary('restic-restore-test.timer', omit) }}"
+
+- name: Ensure restic cache directory exists
+  ansible.builtin.file:
+    path: "{{ backup_cache_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Initialize restic repository if empty
+  ansible.builtin.shell: >-
+    RESTIC_PASSWORD_FILE="{{ backup_password_file }}" restic -r "{{ backup_repo_path }}" snapshots >/dev/null 2>&1 || \
+    RESTIC_PASSWORD_FILE="{{ backup_password_file }}" restic -r "{{ backup_repo_path }}" init
+  args:
+    executable: /bin/bash
+  environment:
+    RESTIC_PASSWORD_FILE: "{{ backup_password_file }}"
+  register: restic_init_result
+  changed_when: restic_init_result.rc == 0
+  failed_when: false

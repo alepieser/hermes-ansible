@@ -48,6 +48,8 @@
       tags: [tailscale, vpn, remote-access]
     - role: beszel
       tags: [beszel, monitoring]
+    - role: backup
+      tags: [backup, backup-restic]
 
   post_tasks:
     - name: Configure locale
@@ -66,10 +68,16 @@
                  - AdGuard Home (port 53/8080) with filtering
                  - Nginx reverse proxy with Let's Encrypt SSL
                  - Beszel agent for system monitoring
+                 - Restic backup system with ntfy notifications
 
                  Access AdGuard Home at: https://adguard.sagradafamilia.casa
 
           To update AdGuard Home:
           1. Change adguard_version in roles/aguard/defaults/main.yml
           2. Run: ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --tags aguard --ask-vault-pass
+
+          Backup system:
+          - Daily backups to NFS: {{ backup_nfs_server }}:{{ backup_nfs_export }}
+          - Notifications via ntfy topic: {{ backup_notify_topic }}
+          - Backup includes: AdGuard, Unbound, Nginx, Tailscale, Let's Encrypt, Beszel configs
       tags: always

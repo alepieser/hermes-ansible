@@ -1,0 +1,19 @@
+[Unit]
+Description=Restic backup (NFS repo)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=RESTIC_PASSWORD_FILE={{ backup_password_file }}
+Environment=RESTIC_CACHE_DIR={{ backup_cache_dir }}
+ExecStart=/usr/local/bin/backup-run.sh "Backup" \
+  "/usr/bin/restic -r {{ backup_repo_path }} backup --files-from /etc/restic/include.txt --exclude-file /etc/restic/exclude.txt --one-file-system"
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+[Install]
+WantedBy=multi-user.target
+
+

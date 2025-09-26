@@ -1,0 +1,66 @@
+---
+# Defaults for backup role (renamed from backup_restic)
+# Comments are in English by project policy
+
+# NFS server hostname or IP (set in group_vars)
+backup_nfs_server: "CHANGE_ME_TRUENAS_HOST"
+
+# Export path on TrueNAS (dataset path)
+backup_nfs_export: "/mnt/app-storage/backup/thot"
+
+# Local mount point on the server
+backup_mount_point: "/mnt/backup/"
+
+# Filesystem and mount options
+backup_filesystem_type: "nfs4"
+backup_nfs_options: "defaults,nofail,_netdev,auto,x-systemd.automount,timeo=600,retrans=2"
+
+# Restic repository path (points to mounted NFS directory)
+backup_repo_path: "{{ backup_mount_point }}"
+
+# Path to the file storing the restic repo password
+backup_password_file: "/etc/restic/password"
+
+# Include ntfy cache/attachments in backups (can be large)
+backup_include_ntfy_cache: false
+
+# Forget/prune retention policy flags
+# Example: keep 7 daily, 4 weekly, 6 monthly snapshots
+backup_forget_flags: "--keep-daily 7 --keep-weekly 4 --keep-monthly 6"
+
+# Timers
+backup_enable_hourly_backup: false
+backup_enable_daily_prune: true
+# Schedule (override to change times)
+backup_timer_oncalendar: "*-*-* 00:00:00"
+prune_timer_oncalendar: "*-*-* 06:00:00"
+check_timer_oncalendar: "Sun *-*-* 03:00:00"
+restore_test_timer_oncalendar: "monthly"
+
+# Validate that the NFS mount is correct and active before any backup action
+backup_verify_mount: true
+
+# Weekly repository integrity check
+backup_enable_weekly_check: true
+# Read 10% of data each week to amortize full verification
+backup_check_flags: "--read-data-subset=10%"
+
+# Monthly restore test (dry-run style restore to temp dir)
+backup_enable_monthly_restore_test: true
+backup_restore_test_include: "/opt/adguardhome/data"
+backup_restore_test_target: "/tmp/restore-test"
+
+# ntfy notifications
+backup_notify_enabled: true
+backup_notify_url: "https://ntfy.sagradafamilia.casa"
+backup_notify_topic: "E2hsQ5fEfxkZdUdn"
+backup_notify_token: "{{ vault_ntfy_token | default('') }}"
+backup_notify_tags: "floppy_disk"
+backup_notify_priority: "default"
+
+# Distinct icons/tags for success vs failure notifications
+backup_notify_success_tags: "floppy_disk,white_check_mark"
+backup_notify_failure_tags: "floppy_disk,rotating_light"
+
+# Restic cache directory to avoid warnings and speed operations
+backup_cache_dir: "/var/cache/restic"

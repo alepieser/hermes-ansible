@@ -1,0 +1,20 @@
+[Unit]
+Description=Restic monthly restore test
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=RESTIC_PASSWORD_FILE={{ backup_password_file }}
+ExecStartPre=/bin/mkdir -p {{ backup_restore_test_target }}
+# Restore the selected path into a temp target without overwriting live data
+ExecStart=/usr/local/bin/backup-run.sh "Restore test" \
+  "/usr/bin/restic -r {{ backup_repo_path }} restore latest --include {{ backup_restore_test_include }} --target {{ backup_restore_test_target }}"
+# Cleanup old restore-test content older than 14 days
+ExecStartPost=/usr/bin/find {{ backup_restore_test_target }} -maxdepth 1 -type d -mtime +14 -name "restore-*" -prune -exec rm -rf {} +
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+[Install]
+WantedBy=multi-user.target

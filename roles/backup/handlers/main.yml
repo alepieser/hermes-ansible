@@ -1,0 +1,6 @@
+---
+# Handlers for backup role
+# Comments are in English by project policy
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true

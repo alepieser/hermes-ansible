@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Run a backup/check command and notify via ntfy on success/failure
+set -euo pipefail
+
+JOB_NAME="$1"; shift
+CMD="$*"
+
+HOSTNAME=$(hostname -s || echo "host")
+
+set +e
+eval "$CMD"
+CODE=$?
+set -e
+
+if [ $CODE -eq 0 ]; then
+  /usr/local/bin/backup-notify.sh "$JOB_NAME success" "$JOB_NAME completed successfully on $HOSTNAME" default "{{ backup_notify_success_tags }}" || true
+else
+  /usr/local/bin/backup-notify.sh "$JOB_NAME failure" "$JOB_NAME failed on $HOSTNAME (exit $CODE). Check logs." high "{{ backup_notify_failure_tags }}" || true
+fi
+
+exit $CODE
+
+

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run restic forget+prune daily
+
+[Timer]
+OnCalendar={{ prune_timer_oncalendar }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+
+

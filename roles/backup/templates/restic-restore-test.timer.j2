@@ -1,0 +1,11 @@
+[Unit]
+Description=Run restic monthly restore test
+
+[Timer]
+OnCalendar=monthly
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+
+

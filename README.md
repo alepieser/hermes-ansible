@@ -10,6 +10,7 @@ Infrastructure-as-code to provision a Raspberry Pi 4 (Hermes) as a secure home s
 - **Tailscale**: remote access, Split DNS (`sagradafamilia.casa`), disable key expiry for device, auto-approve subnet routes, IP forwarding.
 - **Firewall (UFW)**: exposes only required ports (22, 53/tcp+udp, 80, 443, 45876).
 - **Beszel agent**: lightweight monitoring agent listening on 45876/TCP.
+- **Restic backup**: automated daily backups to NFS with ntfy notifications for critical data only.
 
 ### Repository layout
 - `playbooks/setup.yml`: main provisioning playbook (all roles).
@@ -17,7 +18,7 @@ Infrastructure-as-code to provision a Raspberry Pi 4 (Hermes) as a secure home s
 - `inventory/hosts.yml`: target host inventory (Hermes).
 - `group_vars/all.yml`: non-secret configuration.
 - `group_vars/all.vault.yml`: secrets (encrypted with Ansible Vault).
-- `roles/`: role customizations for `unbound`, `aguard` (AdGuard Home), `nginx`, `letsencrypt`, `tailscale`, `beszel`.
+- `roles/`: role customizations for `unbound`, `aguard` (AdGuard Home), `nginx`, `letsencrypt`, `tailscale`, `beszel`, `backup`.
 - `requirements.yml`: external roles and collections (including `community.beszel`).
 - `requirements.txt`: Python requirements (Ansible, linters).
 
@@ -48,6 +49,8 @@ Set these keys in `group_vars/all.vault.yml`:
 - `vault_letsencrypt_email`, `vault_cloudflare_api_key` (and optional `vault_cloudflare_email`).
 - `vault_tailscale_auth_key`, `vault_tailscale_api_key`.
 - `vault_beszel_agent_public_key`, `vault_beszel_agent_token`.
+- `vault_ntfy_token`: ntfy authentication token for backup notifications.
+- `backup_restic_password`: password for the restic repository encryption.
 
 ### Important variables (non-secret)
 Defined in `group_vars/all.yml` (edit as needed):
@@ -57,6 +60,8 @@ Defined in `group_vars/all.yml` (edit as needed):
 - `proxies`: Nginx reverse proxies (AdGuard UI on 8080 exposed via TLS).
 - `tailscale_enabled`, `tailscale_advertise_routes`, `tailscale_accept_routes`.
 - `beszel_agent_hub_url`: Beszel Hub URL (e.g., `http://192.168.1.72:8090`).
+- `backup_nfs_server`, `backup_nfs_export`: NFS server configuration for backup storage.
+- `backup_notify_topic`: ntfy topic for backup notifications.
 
 ### Roles and tags
 Run subsets of the setup using tags:
@@ -75,6 +80,9 @@ ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --ask-vault-pass --t
 
 # Monitoring (Beszel agent)
 ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --ask-vault-pass --tags beszel
+
+# Backup system
+ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --ask-vault-pass --tags backup
 ```
 
 ### DNS design
@@ -96,6 +104,41 @@ ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --ask-vault-pass --t
 - 53/tcp, 53/udp (DNS via AdGuard)
 - 80/tcp, 443/tcp (Nginx)
 - 45876/tcp (Beszel agent)
+
+### Backup system
+Automated daily backups using Restic with ntfy notifications:
+
+**What is backed up (critical data only):**
+- AdGuard Home data (statistics, logs, cache)
+- Unbound DNS data (cache, statistics)
+- Tailscale VPN state and keys
+- Beszel monitoring agent token
+
+**What is NOT backed up (regenerated via Ansible):**
+- All configuration files (AdGuard, Unbound, Nginx, firewall, SSH, systemd)
+- Let's Encrypt certificates
+
+**Schedule:**
+- Daily backup at midnight
+- Daily cleanup/prune at 6 AM
+- Weekly repository integrity check (Sunday 3 AM)
+- Monthly restore test (1st of each month)
+
+**Notifications:**
+- Success/failure notifications via ntfy using token authentication
+- Topic: configured in `backup_notify_topic` variable
+
+**Manual operations:**
+```bash
+# Run backup manually
+sudo systemctl start restic-backup.service
+
+# List snapshots
+sudo RESTIC_PASSWORD_FILE=/etc/restic/password restic -r /mnt/backup snapshots
+
+# Restore specific snapshot
+sudo RESTIC_PASSWORD_FILE=/etc/restic/password restic -r /mnt/backup restore <snapshot-id> --target /tmp/restore
+```
 
 ### System updates
 Use the dedicated playbook:
@@ -128,6 +171,7 @@ Use conventional commits for all changes, e.g.:
 - Tailscale flags: consolidate options in a single `tailscale up` call; API is used for nameservers and Split DNS.
 - Firewall rule updates: ensure `firewall_allowed_ports` contains desired ports; re-run with `--tags firewall`.
 - Beszel token: token is injected via systemd drop-in (`Environment=TOKEN=...`); restart service after changes.
+- Backup failures: check NFS mount with `mount | grep backup`; verify ntfy token in vault; check restic logs with `journalctl -u restic-backup.service`.
 
 ### Access
 - AdGuard UI: behind Nginx at your configured hostname (e.g., `https://adguard.sagradafamilia.casa`).

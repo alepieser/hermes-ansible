@@ -208,3 +208,15 @@ beszel_agent_hub_url: "https://beszel.sagradafamilia.casa"
 # Beszel agent configuration (only overriding non-defaults)
 beszel_agent_public_key: "{{ vault_beszel_agent_public_key | default('') }}"
 beszel_agent_token: "{{ vault_beszel_agent_token | default('') }}"
+
+# Backup configuration
+# ====================
+# Comments are in English by project policy
+backup_nfs_server: "192.168.1.6"
+backup_nfs_export: "/mnt/app-storage/backup/hermes"
+backup_mount_point: "/mnt/backup"
+backup_include_ntfy_cache: false
+backup_forget_flags: "--keep-daily 7 --keep-weekly 4 --keep-monthly 6"
+backup_enable_hourly_backup: false
+backup_enable_daily_prune: true
+backup_notify_topic: "E2hsQ5fEfxkZdUdn"

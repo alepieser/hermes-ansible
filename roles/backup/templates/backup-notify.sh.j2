@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Simple ntfy notification wrapper for backup jobs
+set -euo pipefail
+
+NTFY_URL="{{ backup_notify_url }}"
+NTFY_TOPIC="{{ backup_notify_topic }}"
+NTFY_TOKEN="{{ backup_notify_token }}"
+NTFY_TAGS="{{ backup_notify_tags }}"
+NTFY_PRIORITY="{{ backup_notify_priority }}"
+
+TITLE="$1"
+BODY="$2"
+PRIORITY="${3:-$NTFY_PRIORITY}"
+TAGS_OVERRIDE="${4:-}"
+# Map legacy aliases
+case "$PRIORITY" in
+  normal) PRIORITY="default";;
+  high|urgent) PRIORITY="high";;
+  low) PRIORITY="low";;
+esac
+
+AUTH_ARGS=()
+if [[ -n "$NTFY_TOKEN" ]]; then
+  AUTH_ARGS=( -H "Authorization: Bearer $NTFY_TOKEN" )
+fi
+
+TAGS_TO_SEND="${TAGS_OVERRIDE:-$NTFY_TAGS}"
+
+curl -fsS -m 5 \
+  -H "Tags: ${TAGS_TO_SEND}" \
+  -H "Title: ${TITLE}" \
+  -H "Priority: ${PRIORITY}" \
+  "${AUTH_ARGS[@]}" \
+  -d "$BODY" \
+  "${NTFY_URL%/}/{{ backup_notify_topic }}"

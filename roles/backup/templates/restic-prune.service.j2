@@ -1,0 +1,19 @@
+[Unit]
+Description=Restic forget+prune
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=RESTIC_PASSWORD_FILE={{ backup_password_file }}
+Environment=RESTIC_CACHE_DIR={{ backup_cache_dir }}
+ExecStart=/usr/local/bin/backup-run.sh "Prune" \
+  "/usr/bin/restic -r {{ backup_repo_path }} forget {{ backup_forget_flags }} --prune"
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+[Install]
+WantedBy=multi-user.target
+
+

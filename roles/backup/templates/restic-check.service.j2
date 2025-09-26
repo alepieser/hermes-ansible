@@ -1,0 +1,18 @@
+[Unit]
+Description=Restic repository integrity check (weekly)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=RESTIC_PASSWORD_FILE={{ backup_password_file }}
+ExecStart=/usr/local/bin/backup-run.sh "Check" \
+  "/usr/bin/restic -r {{ backup_repo_path }} check {{ backup_check_flags }}"
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+[Install]
+WantedBy=multi-user.target
+
+

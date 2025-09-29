@@ -38,7 +38,7 @@ unbound_local_zones:
     records:
       - "dedale.local. IN A 192.168.1.5"
 # AdGuard Home configuration
-adguard_version: "v0.107.66"
+adguard_version: "v0.107.67"
 adguard_local_dns_enabled: true
 adguard_local_dns_records:
   - domain: "*.sagradafamilia.casa"

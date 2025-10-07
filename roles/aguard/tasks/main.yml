@@ -59,19 +59,25 @@
     group: root
   when: adguard_install_needed | default(true)
 
+- name: Create temporary extraction directory for AdGuard Home
+  ansible.builtin.file:
+    path: "/tmp/adguard_extract"
+    state: directory
+    mode: '0755'
+  when: adguard_install_needed | default(true)
+
 - name: Extract AdGuard Home binary (ARM64 - Raspberry Pi 4)
   ansible.builtin.unarchive:
     src: "/tmp/AdGuardHome_linux_arm64.tar.gz"
-    dest: "/tmp/"
+    dest: "/tmp/adguard_extract/"
     remote_src: true
     owner: root
     group: root
-    mode: '0755'
   when: adguard_install_needed | default(true)
 
 - name: Install AdGuard Home binary
   ansible.builtin.copy:
-    src: "/tmp/AdGuardHome/AdGuardHome"
+    src: "/tmp/adguard_extract/AdGuardHome/AdGuardHome"
     dest: "{{ adguard_install_dir }}/AdGuardHome"
     owner: "{{ adguard_user }}"
     group: "{{ adguard_group }}"
@@ -139,7 +145,7 @@
     state: absent
   loop:
     - "/tmp/AdGuardHome_linux_arm64.tar.gz"
-    - "/tmp/AdGuardHome"
+    - "/tmp/adguard_extract"
   when: adguard_install_needed | default(true)
 
 # Configure systemd-resolved to use AdGuard Home
